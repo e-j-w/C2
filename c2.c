@@ -645,11 +645,9 @@ double CMToLabAngleDeg(double CMAngleDeg, int proj){
 void calculateCrossSection() {
 
   // double      tauIn; // not currently used
-  double theta;
   //double Eprime;
   //double t, tbar;
   //double phi;
-  double dc; // distance of closest approach in fm
   double c, ce;
 
   //Eprime = KE - (A1 + A2) / A2 * Eex; // internal energy of the center of mass 1/2*mu*Vrel^2
@@ -688,12 +686,6 @@ void calculateCrossSection() {
 
   SetupLookupGenerator();
 
-  theta = GetTheta(); // in the CM
-  // printf("theta = %.2f\n",theta);
-
-  dc = 0.5 * AHC * Z1 * Z2 / KE * (1 + A1 / A2) *
-       (1 + 1 / sin(0.5 * theta * DEG2RAD));
-
   sigmaFace = ce * thef; // Full Eq. II C.15, cross section on the target face in barns
 
 
@@ -703,19 +695,21 @@ void calculateCrossSection() {
 
   printf("ksi : %6.3f\n\n",ksiFace);
 
-  printf("Scattered particle       Scattered particle     Differential x-sec         x-sec into\n");
-  printf("    CM angle (deg)          lab angle (deg)     at bin centre (b)             bin (b)\n");
+  printf("Scattered particle     Differential x-sec         x-sec into       Scattered particle\n");
+  printf("    CM angle (deg)      at bin centre (b)            bin (b)          lab angle (deg)\n");
   for (int i=0;i<=17;i++){
     double lowAngLab = CMToLabAngleDeg(i*10.0,projEx);
     double highAngLab = CMToLabAngleDeg((i+1)*10.0,projEx);
 
     double solidAng = (cos(i*10.0*DEG2RAD) - cos((i+1)*10.0*DEG2RAD))*TWOPI;
-    printf("     %3i - %3i deg      %6.2f - %6.2f deg             %10.5f       %10.5f b\n", i*10, (i+1)*10, lowAngLab, highAngLab, ce * dfdOmega(ksiFace, (i+0.5)*10.0), ce * dfdOmega(ksiFace, (i+0.5)*10.0) * solidAng);
+    printf("     %3i - %3i deg            %10.5f          %10.5f      %6.2f - %6.2f deg\n", i*10, (i+1)*10, ce * dfdOmega(ksiFace, (i+0.5)*10.0), ce * dfdOmega(ksiFace, (i+0.5)*10.0) * solidAng,  lowAngLab, highAngLab);
   }
 
+  double grzAng = getMinGrazingAngle();
   printf("\n");
-  printf("Total cross section                  : %10.4f b\n", sigmaFace);
-  printf("Minimum distance of closest approach : %10.4f fm\n",dc);
+  printf("Total cross section                          : %10.4f b\n", sigmaFace);
+  printf("Minimum grazing angle (centre of mass frame) : %10.1f deg\n",grzAng);
+  printf("Total cross section below the grazing angle  : %10.4f b\n",getXSecBelowAngle(grzAng,ce));
 }
 
 void SetupLookupGenerator() {
@@ -751,6 +745,34 @@ void SetupLookupGenerator() {
       thlookup.push_back(i - 1);
 }
 
+double getDistClosestApproach(double thetaCMDeg){
+  return 0.5 * AHC * Z1 * Z2 / KE * (1 + A1 / A2) * (1 + 1 / sin(0.5 * thetaCMDeg * DEG2RAD));
+}
+
+double getMinGrazingAngle(){
+  double angleCM=0.5;
+  double step=0.1;
+  double grazingDist=1.2*(pow(A1,1/3.) + pow(A2,1/3.) );
+  while(angleCM<180.0){
+    if(getDistClosestApproach(angleCM) < grazingDist)
+      break;
+    angleCM+=step;
+  }
+  return angleCM;
+}
+
+double getXSecBelowAngle(double thetaDeg, double ce){
+  double xsec=0.;
+  double angleCM=0.0;
+  double step=0.1;
+  while(angleCM<thetaDeg){
+    double solidAng = (cos(angleCM*DEG2RAD) - cos((angleCM+step)*DEG2RAD))*TWOPI;
+    xsec += dfdOmega(ksiFace, (angleCM+(step/2.))) * solidAng;
+    angleCM+=step;
+  }
+  xsec *= ce;
+  return xsec;
+}
 
 double GetKsi(double KE) {
   // double vi,vf;
@@ -783,48 +805,6 @@ double GetKsi(double KE) {
   // printf("ksi   %8.4f\n",ksi);
 
   return ksi;
-}
-
-double GetTheta() {
-  // returns the scattering angle in the CM according to Tab. II.8 p. 464
-  double xeps = 0.0001;
-  int bin;
-  double th1, th2, f1, f2, F, r, x1, x2, y1, y2, y;
-  double th;
-  // first look up the bin
-  bin = thlookup[(int)(doubleRand() * thlookup.size())];
-  th1 = thetaArray[bin];
-  th2 = thetaArray[bin + 1];
-  f1 = thefth[bin];
-  f2 = thefth[bin + 1];
-
-  F = fbin[bin] / TWOPI;
-  r = doubleRand();
-
-  x1 = th1;
-  y1 = FineThetaFunction(x1, th1, th2, f1, f2, F, r);
-  if (fabs(y1) < xeps)
-    return th1;
-
-  x2 = th2;
-  y2 = FineThetaFunction(x2, th1, th2, f1, f2, F, r);
-  if (fabs(y2) < xeps)
-    return th2;
-
-  th = thbin[bin];
-  while (fabs(y = FineThetaFunction(th, th1, th2, f1, f2, F, r)) > xeps) {
-    if (y < 0) {
-      x1 = th;
-      y1 = y;
-    }
-    if (y >= 0) {
-      x2 = th;
-      y2 = y;
-    }
-    th = x1 - y1 * (x2 - x1) / (y2 - y1);
-  }
-
-  return th;
 }
 
 double FineThetaFunction(double th, double th1, double th2, double f1,

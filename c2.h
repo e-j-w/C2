@@ -10,11 +10,13 @@
 #define TWOPI      6.28318530718
 #define PI         3.14159265359
 
+
 void calculateCrossSection();
 void initialSetup();
 void Calcfthksi(double,std::vector<double>*);
 void SetupLookupGenerator();
-double GetTheta();
+double getMinGrazingAngle();
+double getXSecBelowAngle(double,double);
 double FineThetaFunction(double,double,double,double,double,double,double);
 double GetKsi(double);
 double dfdOmega(double,double);
