@@ -649,7 +649,6 @@ void calculateCrossSection() {
   //double Eprime;
   //double t, tbar;
   //double phi;
-  //double ksi;
   double dc; // distance of closest approach in fm
   double c, ce;
 
@@ -701,7 +700,8 @@ void calculateCrossSection() {
   printf("\nCALCULATION RESULTS\n");
   printf("-------------------\n\n");
   //printf("ksi=%f, ce=%f, thef=%f\n",ksiFace,ce,thef);
-  
+
+  printf("ksi : %6.3f\n\n",ksiFace);
 
   printf("Scattered particle       Scattered particle     Differential x-sec         x-sec into\n");
   printf("    CM angle (deg)          lab angle (deg)     at bin centre (b)             bin (b)\n");
@@ -1019,6 +1019,7 @@ int main(int argc, char *argv[]) {
   vlab = sqrt(2.0*A1*AMUMEV*KE)/(A1*AMUMEV); //projectile lab speed in units of c
   vcm = sqrt(2.0*A1*AMUMEV*KE)/((A1+A2)*AMUMEV); //in units of c
   ecm = 0.5 * ( (A1*AMUMEV*(vlab-vcm)*(vlab-vcm)) + (A2*AMUMEV*vcm*vcm) );
+  barrier=1.44*Z1*Z2/(1.2*(pow(A1,1/3.) + pow(A2,1/3.) ) + 5);
 
   printf("Projectile Energy                   : %6.2f MeV\n", KE);
   printf("Projectile A                        : %6d\n", (int)A1);
@@ -1036,11 +1037,15 @@ int main(int argc, char *argv[]) {
     printf("Target recoil B(E2,0+=>2+)          : %6.2f e^2b^2\n", BE2);
   }
 
+  printf("Inital projectile velocity (lab)    : %6.3f c\n",vlab);
+  printf("Centre-of-mass velocity             : %6.3f c\n",vcm);
   printf("Centre-of-mass energy               : %6.2f MeV\n",ecm);
+  printf("Coulomb barrier energy              : %6.2f MeV\n",barrier);
   if(ecm < Eex){
     printf("ERROR: Not enough energy in the centre of mass (%5.3f MeV) to excite to the specified excitation energy (%5.3f MeV).\n",ecm,Eex);
     exit(0);
   }
+  
 
   initialSetup();
   calculateCrossSection();

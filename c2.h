@@ -68,6 +68,7 @@ double DEp;
 double vlab; //lab velocity (units of c)
 double vcm; //centre of mass velocity (units of c)
 double ecm; //centre of mass energy (MeV)
+double barrier; //Coulomb barrier (MeV)
 
 double dcmin; // minimum allowed distance of closest approach in fm
 
