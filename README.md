@@ -12,6 +12,10 @@ Calculates cross-sections for Coulomb excitation reactions.  Currently only E2 e
 
 Use `make` to compile.  Tested using g++ and GNU make on CentOS 7.
 
+## Usage
+
+Run the code without any arguments to see a listing and description of available parameters.
+
 ## Credits
 
 The cross-section calculations follow the formalism of K. Alder, A. Bohr, T. Huus, B. Mottelson, and A. Winther, Rev. Mod. Phys. 28 (1956) 432.

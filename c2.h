@@ -4,10 +4,11 @@
 #include <math.h>
 #include <vector>
 
-#define AMU        931.49410242
+#define AMUMEV     931.49410242
 #define DEG2RAD    0.01745329252 // conversion factor from deg to radians
 #define AHC        1.439964535   // fine struct const*hbar*c in MeV*fm
 #define TWOPI      6.28318530718
+#define PI         3.14159265359
 
 void calculateCrossSection();
 void initialSetup();
@@ -63,6 +64,10 @@ double KE; //kinetic energy of the projectile in the lab frame
 int projEx;
 double Eex;
 double DEp;
+
+double vlab; //lab velocity (units of c)
+double vcm; //centre of mass velocity (units of c)
+double ecm; //centre of mass energy (MeV)
 
 double dcmin; // minimum allowed distance of closest approach in fm
 

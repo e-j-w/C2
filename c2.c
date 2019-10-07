@@ -623,6 +623,25 @@ void initialSetup() {
   fthksi.push_back(th180);
 }
 
+//proj=1 if the angle is for the projectile, 0 for the target recoil
+double CMToLabAngleDeg(double CMAngleDeg, int proj){
+  double v = 0.;
+  double ang=0.;
+  double pcm = sqrt((ecm-Eex)*2.0/(1/(A1*AMUMEV) + 1/(A2*AMUMEV))); //momentum of each particle in the centre of mass frame (MeV/c), corrected for excitation energy
+  if(proj==1){
+    //projectile
+    v = pcm/(A1*AMUMEV);
+  }else{
+    //target recoil
+    v = pcm/(A2*AMUMEV);
+  }
+  //printf("ang: %f, pcm: %f, v: %f, vcm:%f\n",CMAngleDeg,pcm,v,vcm);
+  ang = atan2(sin(CMAngleDeg*DEG2RAD), cos(CMAngleDeg*DEG2RAD) + (vcm / v)) / DEG2RAD;
+  if(ang<0.)
+    ang*=-1;
+  return ang;
+}
+
 void calculateCrossSection() {
 
   // double      tauIn; // not currently used
@@ -632,19 +651,6 @@ void calculateCrossSection() {
   //double phi;
   //double ksi;
   double dc; // distance of closest approach in fm
-
-  // beam
-  A1 = 20;
-  Z1 = 12;
-  Eex = 1.598; // in MeV
-  Tau = 2.21;   // in ps
-  KE = 50.0;   // lab energy of the beam in MeV
-
-  // target
-  A2 = 9;
-  Z2 = 4;
-  Tau = -1;  // in ps
-
   double c, ce;
 
   //Eprime = KE - (A1 + A2) / A2 * Eex; // internal energy of the center of mass 1/2*mu*Vrel^2
@@ -690,8 +696,26 @@ void calculateCrossSection() {
        (1 + 1 / sin(0.5 * theta * DEG2RAD));
 
   sigmaFace = ce * thef; // Full Eq. II C.15, cross section on the target face in barns
-  printf("Target face cross section           :%10.4f b\n", sigmaFace);
-  printf("\nMinimum distance of closest approach: %5.2f fm\n",dc);
+
+
+  printf("\nCALCULATION RESULTS\n");
+  printf("-------------------\n\n");
+  //printf("ksi=%f, ce=%f, thef=%f\n",ksiFace,ce,thef);
+  
+
+  printf("Scattered particle       Scattered particle     Differential x-sec         x-sec into\n");
+  printf("    CM angle (deg)          lab angle (deg)     at bin centre (b)             bin (b)\n");
+  for (int i=0;i<=17;i++){
+    double lowAngLab = CMToLabAngleDeg(i*10.0,projEx);
+    double highAngLab = CMToLabAngleDeg((i+1)*10.0,projEx);
+
+    double solidAng = (cos(i*10.0*DEG2RAD) - cos((i+1)*10.0*DEG2RAD))*TWOPI;
+    printf("     %3i - %3i deg      %6.2f - %6.2f deg             %10.5f       %10.5f b\n", i*10, (i+1)*10, lowAngLab, highAngLab, ce * dfdOmega(ksiFace, (i+0.5)*10.0), ce * dfdOmega(ksiFace, (i+0.5)*10.0) * solidAng);
+  }
+
+  printf("\n");
+  printf("Total cross section                  : %10.4f b\n", sigmaFace);
+  printf("Minimum distance of closest approach : %10.4f fm\n",dc);
 }
 
 void SetupLookupGenerator() {
@@ -726,6 +750,7 @@ void SetupLookupGenerator() {
     for (k = limits[i - 1]; k < limits[i]; k++)
       thlookup.push_back(i - 1);
 }
+
 
 double GetKsi(double KE) {
   // double vi,vf;
@@ -938,45 +963,83 @@ int main(int argc, char *argv[]) {
 
   }
 
-
+  //check all values
   if (Eex <= 0.) {
-    printf("Excitation energy must be a positive value (specify using -Eex VALUE).\n");
+    printf("ERROR: Excitation energy must be a positive value (specify using -Eex VALUE).\n");
+    exit(0);
+  }
+  if (KE <= 0.) {
+    printf("ERROR: Projectile (beam) energy must be a positive value (specify using -Ep VALUE).\n");
+    exit(0);
+  }
+  if (A1 <= 0.) {
+    printf("ERROR: Projectile mass number must be a positive value (specify using -Ap VALUE).\n");
+    exit(0);
+  }
+  if (Z1 <= 0.) {
+    printf("ERROR: Projectile atomic number must be a positive value (specify using -Zp VALUE).\n");
+    exit(0);
+  }
+  if (A2 <= 0.) {
+    printf("ERROR: Target mass number must be a positive value (specify using -At VALUE).\n");
+    exit(0);
+  }
+  if (Z2 <= 0.) {
+    printf("ERROR: Target atomic number must be a positive value (specify using -Zt VALUE).\n");
+    exit(0);
+  }
+  if(Z1 > A1){
+    printf("ERROR: Projectile atomic number (-Zp) cannot be larger than it's mass number (-Ap).\n");
+    exit(0);
+  }
+  if(Z2 > A2){
+    printf("ERROR: Target atomic number (-Zt) cannot be larger than it's mass number (-At).\n");
     exit(0);
   }
 
   if (projEx) {
     printf("Using projectile excitation.\n");
-    if (Tau > 0)
-      BE2 = 5. * 0.082 / Tau / pow(Eex, 5.); // from Eq. II A.56 multiplied by
-                                            // ahc (a = fine struct. const.)
-    else {
+    if (Tau > 0){
+      BE2 = 5. * 0.082 / Tau / pow(Eex, 5.); // from Eq. II A.56 multiplied by ahc (a = fine struct. const.)
+    }else {
       printf("Projectile de-excitation lifetime must be a positive value (specify using -tau VALUE).\n");
       exit(0);
     }
   } else {
     printf("Using target recoil excitation.\n");
-    if (Tau > 0)
-      BE2 = 5. * 0.082 / Tau / pow(Eex, 5.); // from Eq. II A.56 multiplied by
-                                            // ahc (a = fine struct. const.)
-    else {
+    if (Tau > 0){
+      BE2 = 5. * 0.082 / Tau / pow(Eex, 5.); // from Eq. II A.56 multiplied by ahc (a = fine struct. const.)
+    }else {
       printf("Target recoil de-excitation lifetime must be a positive value (specify using -tau VALUE).\n");
       exit(0);
     }
   }
 
-  printf("Projectile A                        : %5d\n", (int)A1);
-  printf("Projectile Z                        : %5d\n", (int)Z1);
+  //centre-of-mass calculation (classical)
+  vlab = sqrt(2.0*A1*AMUMEV*KE)/(A1*AMUMEV); //projectile lab speed in units of c
+  vcm = sqrt(2.0*A1*AMUMEV*KE)/((A1+A2)*AMUMEV); //in units of c
+  ecm = 0.5 * ( (A1*AMUMEV*(vlab-vcm)*(vlab-vcm)) + (A2*AMUMEV*vcm*vcm) );
+
+  printf("Projectile Energy                   : %6.2f MeV\n", KE);
+  printf("Projectile A                        : %6d\n", (int)A1);
+  printf("Projectile Z                        : %6d\n", (int)Z1);
   if (projEx) {
-    printf("Projectile excitation energy        : %5.3f MeV\n", Eex);
-    printf("Projectile deexcitation lifetime    : %5.2f ps\n", Tau);
-    printf("Projectile B(E2,0+=>2+)             : %5.2f e^2b^2\n", BE2);
+    printf("Projectile excitation energy        : %6.3f MeV\n", Eex);
+    printf("Projectile deexcitation lifetime    : %6.2f ps\n", Tau);
+    printf("Projectile B(E2,0+=>2+)             : %6.2f e^2b^2\n", BE2);
   }
-  printf("Target recoil A                     : %5d\n", (int)A2);
-  printf("Target recoil Z                     : %5d\n", (int)Z2);
+  printf("Target recoil A                     : %6d\n", (int)A2);
+  printf("Target recoil Z                     : %6d\n", (int)Z2);
   if (!projEx) {
-    printf("Target recoil excitation energy     : %5.3f MeV\n", Eex);
-    printf("Target recoil deexcitation lifetime : %5.2f ps\n", Tau);
-    printf("Target recoil B(E2,0+=>2+)          : %5.2f e^2b^2\n", BE2);
+    printf("Target recoil excitation energy     : %6.3f MeV\n", Eex);
+    printf("Target recoil deexcitation lifetime : %6.2f ps\n", Tau);
+    printf("Target recoil B(E2,0+=>2+)          : %6.2f e^2b^2\n", BE2);
+  }
+
+  printf("Centre-of-mass energy               : %6.2f MeV\n",ecm);
+  if(ecm < Eex){
+    printf("ERROR: Not enough energy in the centre of mass (%5.3f MeV) to excite to the specified excitation energy (%5.3f MeV).\n",ecm,Eex);
+    exit(0);
   }
 
   initialSetup();
